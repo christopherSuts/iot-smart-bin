@@ -25,6 +25,10 @@ double latitude = 0, longitude = 0;
 #define TRIG_PIN 4
 #define ECHO_PIN 5
 
+// Servo Initialization
+Servo servo;
+#define FULL_THRESHOLD 30
+
 //Provide the token generation process info.
 #include "addons/TokenHelper.h"
 //Provide the RTDB payload printing info and other helper functions.
@@ -51,6 +55,7 @@ FirebaseConfig config;
 TaskHandle_t uploadTaskHandle;
 TaskHandle_t GPSTaskHandle;
 TaskHandle_t ultrasonicTaskHandle;
+TaskHandle_t servoTaskHandle;
 
 // Data variables
 int count = 0;
@@ -175,6 +180,27 @@ void ultrasonicTask(void *parameter) {
   }
 }
 
+void servoTask(void *parameter) {
+  for (;;) {
+    float currentDistance;
+
+    if (xSemaphoreTake(xBinSemaphore, portMAX_DELAY)) {
+      currentDistance = distance;
+      xSemaphoreGive(xBinSemaphore);
+    }
+
+    if (currentDistance < FULL_THRESHOLD) {
+      servo.write(90);
+      Serial.println("Servo: Tutup tempat sampah");
+    } else {
+      servo.write(0);
+      Serial.println("Servo: Buka tempat sampah");
+    }
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
+
 
 void setup() {
   gpsSerial.begin(9600);
@@ -243,12 +269,23 @@ void setup() {
   xTaskCreatePinnedToCore(
     ultrasonicTask,    // Task function
     "Ultrasonic Task",// Name of the task
-    10000,             // Stack size in bytes
+    2048,             // Stack size in bytes
     NULL,              // Task input parameter
     1,                 // Priority of the task
     &ultrasonicTaskHandle, // Task handle
     1                  // Core 1
   );
+
+  xTaskCreatePinnedToCore(
+    servoTask,    // Task function
+    "Servo Task",// Name of the task
+    2048,             // Stack size in bytes
+    NULL,              // Task input parameter
+    1,                 // Priority of the task
+    &servoTaskHandle, // Task handle
+    0                 // Core 1
+  );
+
 }
 
 void loop() {
