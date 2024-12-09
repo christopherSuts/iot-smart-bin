@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Bin IoT Dashboard</title>
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXgMvzVuCltKh819bEo2R9-tKeIKP4xXo",
+            authDomain: "postioning-via-bluetooth.firebaseapp.com",
+            databaseURL: "https://postioning-via-bluetooth-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "postioning-via-bluetooth",
+            storageBucket: "postioning-via-bluetooth.appspot.com",
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // References to DOM elements
+        const latitudeElement = document.getElementById('latitude');
+        const longitudeElement = document.getElementById('longitude');
+        const kepenuhanElement = document.getElementById('kepenuhan');
+        const btnBuka = document.getElementById('btn-buka');
+        const btnTutup = document.getElementById('btn-tutup');
+
+        // Fetch and update data from Firebase
+        function updateDashboard() {
+            const tongRef = ref(database, 'tong');
+            
+            onValue(tongRef, (snapshot) => {
+                console.log('Snapshot received:', snapshot.val());
+                
+                const data = snapshot.val();
+                
+                // Update Latitude
+                latitudeElement.textContent = data && data.latitude 
+                    ? data.latitude.toFixed(6) 
+                    : '-';
+                
+                // Update Longitude
+                longitudeElement.textContent = data && data.longitude 
+                    ? data.longitude.toFixed(6) 
+                    : '-';
+                
+                // Update Kepenuhan
+                kepenuhanElement.textContent = data && data.fullness 
+                    ? `${data.fullness.toFixed(2)}%` 
+                    : '-';
+            }, (error) => {
+                console.error('Firebase read error:', error);
+            });
+        }
+
+        // Servo Control Functions
+        btnBuka.addEventListener('click', () => {
+            console.log('Buka button clicked');
+            const servoRef = ref(database, 'tong/servo'); // Adjust the path to where you store servo status
+            set(servoRef, 'open'); // Update the database to signal opening the lid
+        });
+
+        btnTutup.addEventListener('click', () => {
+            console.log('Tutup button clicked');
+            const servoRef = ref(database, 'tong/servo'); // Adjust the path to where you store servo status
+            set(servoRef, 'close'); // Update the database to signal closing the lid
+        });
+
+        // Initial update
+        updateDashboard();
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .dashboard {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .bin-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .bin-card {
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        .servo-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .btn-open {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .btn-close {
+            background-color: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <h1>Smart Bin Dashboard</h1>
+        
+        <div class="bin-info">
+            <div class="bin-card">
+                <h3>Latitude</h3>
+                <p id="latitude">-</p>
+            </div>
+            <div class="bin-card">
+                <h3>Longitude</h3>
+                <p id="longitude">-</p>
+            </div>
+        </div>
+
+        <div class="bin-info">
+            <div class="bin-card">
+                <h3>Kepenuhan Tempat Sampah</h3>
+                <p id="kepenuhan">-</p>
+            </div>
+            <div class="bin-card">
+                <h3>Kontrol Servo</h3>
+                <div class="servo-controls">
+                    <button id="btn-buka" class="btn btn-open">Buka</button>
+                    <button id="btn-tutup" class="btn btn-close">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
