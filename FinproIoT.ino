@@ -18,7 +18,7 @@ static const int RXPin = 16, TXPin = 17;
 SoftwareSerial gpsSerial(RXPin, TXPin); // RX TX pin in the software serial
 double latitude = 0, longitude = 0;
 
-const int LOADCELL_DOUT_PIN = 25;
+const int DT = 25;
 const int LOADCELL_SCK_PIN = 33;
 HX711 scale;
 double loadCellWeight = 0; // Variabel untuk menyimpan berat dari load cell
@@ -227,23 +227,13 @@ void servoTask(void *parameter) {
 
 void loadCellTask(void *parameter) {
   for (;;) {
-    double weight = scale.get_units(10); // Ambil nilai rata-rata 10 pembacaan
-    if (xSemaphoreTake(xWeightSemaphore, portMAX_DELAY)) {
-      loadCellWeight = weight; // Simpan nilai berat ke variabel global
-      xSemaphoreGive(xWeightSemaphore);
-    }
+    loadCellWeight = scale.get_units(5); 
 
     Serial.print("Load Cell Weight: ");
-    Serial.print(weight);
+    Serial.print(loadCellWeight);
     Serial.println(" kg");
-
-    scale.power_down();
-    vTaskDelay(5000 / portTICK_PERIOD_MS); // Delay selama 5 detik
-    scale.power_up();
   }
 }
-
-void setupHX711();
 
 void setup() {
   gpsSerial.begin(9600);
@@ -251,10 +241,15 @@ void setup() {
 
   servo.attach(servoPin);
 
-  setupHX711();
-
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
+  pinMode(DT, INPUT);
+  pinMode(LOADCELL_SCK_PIN, OUTPUT);
+
+  // Initialize sensors
+  scale.begin(DT, LOADCELL_SCK_PIN);
+  scale.set_scale(-100000.0); // Calibrate this value as needed
+  scale.tare();
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
@@ -305,16 +300,6 @@ void setup() {
   );
 
   xTaskCreatePinnedToCore(
-    ultrasonicTask,    // Task function
-    "Ultrasonic Task",// Name of the task
-    4096,             // Stack size in bytes
-    NULL,              // Task input parameter
-    1,                 // Priority of the task
-    &ultrasonicTaskHandle, // Task handle
-    1                  // Core 1
-  );
-
-  xTaskCreatePinnedToCore(
     loadCellTask,    // Task function
     "LoadCell Task",// Name of the task
     4096,             // Stack size in bytes
@@ -322,6 +307,16 @@ void setup() {
     1,                 // Priority of the task
     &loadCellTaskHandle, // Task handle
     1                 // Core 1
+  );
+
+  xTaskCreatePinnedToCore(
+    ultrasonicTask,    // Task function
+    "Ultrasonic Task",// Name of the task
+    4096,             // Stack size in bytes
+    NULL,              // Task input parameter
+    1,                 // Priority of the task
+    &ultrasonicTaskHandle, // Task handle
+    1                  // Core 1
   );
 
   xTaskCreatePinnedToCore(
@@ -347,42 +342,4 @@ void setup() {
 
 void loop() {
   Blynk.run();
-}
-
-void setupHX711() {
-  Serial.println("HX711 Setup Started");
-
-  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-
-  Serial.println("Before setting up the scale:");
-  Serial.print("read: \t\t");
-  Serial.println(scale.read());      // print a raw reading from the ADC
-
-  Serial.print("read average: \t\t");
-  Serial.println(scale.read_average(20));   // print the average of 20 readings from the ADC
-
-  Serial.print("get value: \t\t");
-  Serial.println(scale.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight (not set yet)
-
-  Serial.print("get units: \t\t");
-  Serial.println(scale.get_units(5), 1);  // print the average of 5 readings from the ADC minus tare weight divided by the SCALE parameter (not set yet)
-
-  scale.set_scale(-471.497); 
-  scale.tare();              // Reset timbangan ke 0
-
-  Serial.println("After setting up the scale:");
-
-  Serial.print("read: \t\t");
-  Serial.println(scale.read()); // print a raw reading from the ADC
-
-  Serial.print("read average: \t\t");
-  Serial.println(scale.read_average(20)); // print the average of 20 readings from the ADC
-
-  Serial.print("get value: \t\t");
-  Serial.println(scale.get_value(5)); // print the average of 5 readings from the ADC minus the tare weight, set with tare()
-
-  Serial.print("get units: \t\t");
-  Serial.println(scale.get_units(5), 1); // print the average of 5 readings from the ADC minus tare weight divided by the SCALE parameter set with set_scale
-
-  Serial.println("HX711 Setup Completed");
 }
