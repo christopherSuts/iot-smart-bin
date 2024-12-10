@@ -28,6 +28,7 @@ double latitude = 0, longitude = 0;
 // Servo Initialization
 Servo servo;
 #define FULL_THRESHOLD 30
+#define SERVO_PIN 12
 
 //Provide the token generation process info.
 #include "addons/TokenHelper.h"
@@ -67,7 +68,7 @@ double binFullness = 0;
 SemaphoreHandle_t xGPSSemaphore, xBinSemaphore;
 
 BLYNK_WRITE(BIN_VPIN) {
-  closeBin = param.asInt(); // Membaca status bin (0 = buka, 1 = tutup)
+  closeBin = param.asInt(); // Read bin status (0 = open, 1 = close)
   if (closeBin) {          
     Serial.println("Tutup");
   } else {
@@ -244,6 +245,8 @@ void setup() {
 
   xGPSSemaphore = xSemaphoreCreateMutex();
   xBinSemaphore = xSemaphoreCreateMutex();
+
+  servo.attach(SERVO_PIN);
 
   // Create FreeRTOS task for uploading data
    xTaskCreatePinnedToCore(
