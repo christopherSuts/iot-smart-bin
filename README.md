@@ -26,7 +26,6 @@ Implementasi software pada proyek IoT tong sampah pintar dilakukan dengan mengin
 Data dari sensor dikirimkan ke Firebase Realtime Database menggunakan koneksi WiFi yang dikonfigurasi pada ESP32. Firebase berfungsi sebagai media penyimpanan dan pertukaran data, sehingga data dapat diakses oleh interface web yang dirancang menggunakan HTML dan CSS. interface ini memungkinkan pengguna untuk memonitor status tong sampah, termasuk tingkat kepenuhan, berat, dan lokasi GPS secara real-time.
 
 
-Berikut flowchart kami :
 
 ![8BLeo.jpg](https://s6.imgcdn.dev/8BLeo.jpg)
 
