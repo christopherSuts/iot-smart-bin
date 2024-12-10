@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <ESP32Servo.h>
+#include "soc/rtc.h"
+#include "HX711.h"
 
 #define BLYNK_TEMPLATE_ID "TMPL68cNQnfPZ"
 #define BLYNK_TEMPLATE_NAME "Finpro IoT"
@@ -15,6 +18,11 @@ static const int RXPin = 16, TXPin = 17;
 SoftwareSerial gpsSerial(RXPin, TXPin); // RX TX pin in the software serial
 double latitude = 0, longitude = 0;
 
+const int LOADCELL_DOUT_PIN = 25;
+const int LOADCELL_SCK_PIN = 33;
+HX711 scale;
+double loadCellWeight = 0; // Variabel untuk menyimpan berat dari load cell
+
 // Virtual Pin
 #define BIN_VPIN V1
 #define LATITUDE_VPIN V2
@@ -26,8 +34,8 @@ double latitude = 0, longitude = 0;
 #define ECHO_PIN 5
 
 // Servo Initialization
+static const int servoPin = 13;
 Servo servo;
-#define FULL_THRESHOLD 30
 
 //Provide the token generation process info.
 #include "addons/TokenHelper.h"
@@ -36,8 +44,8 @@ Servo servo;
 
 // Insert your network credentials
 char authBlynk[] = BLYNK_AUTH_TOKEN;
-#define WIFI_SSID "CRDV"
-#define WIFI_PASSWORD "durian01"
+#define WIFI_SSID "DTE Dosen"
+#define WIFI_PASSWORD "zfla2290"
 
 // Insert Firebase project API Key
 #define API_KEY "AIzaSyCXgMvzVuCltKh819bEo2R9-tKeIKP4xXo"
@@ -56,6 +64,7 @@ TaskHandle_t uploadTaskHandle;
 TaskHandle_t GPSTaskHandle;
 TaskHandle_t ultrasonicTaskHandle;
 TaskHandle_t servoTaskHandle;
+TaskHandle_t loadCellTaskHandle;
 
 // Data variables
 int count = 0;
@@ -64,7 +73,7 @@ bool closeBin = false;
 float distance = 0;
 double binFullness = 0;
 
-SemaphoreHandle_t xGPSSemaphore, xBinSemaphore;
+SemaphoreHandle_t xGPSSemaphore, xFullnessSemaphore, xWeightSemaphore;
 
 BLYNK_WRITE(BIN_VPIN) {
   closeBin = param.asInt(); // Membaca status bin (0 = buka, 1 = tutup)
@@ -106,16 +115,21 @@ void uploadTask(void *parameter) {
     if (Firebase.ready() && signupOK) {
       sendDataPrevMillis = millis();
 
-      double lat, lng, fullness;
+      double lat, lng, fullness, weight;
       if (xSemaphoreTake(xGPSSemaphore, portMAX_DELAY)) {
         lat = latitude;
         lng = longitude;
         xSemaphoreGive(xGPSSemaphore);
       }
 
-      if (xSemaphoreTake(xBinSemaphore, portMAX_DELAY)) {
+      if (xSemaphoreTake(xFullnessSemaphore, portMAX_DELAY)) {
         fullness = binFullness;
-        xSemaphoreGive(xBinSemaphore);
+        xSemaphoreGive(xFullnessSemaphore);
+      }
+
+      if (xSemaphoreTake(xWeightSemaphore, portMAX_DELAY)) {
+        weight = loadCellWeight;
+        xSemaphoreGive(xWeightSemaphore);
       }
 
       if (Firebase.RTDB.setFloat(&fbdo, "tong/latitude", lat)) {
@@ -134,6 +148,12 @@ void uploadTask(void *parameter) {
         Serial.println("PASSED - Fullness");
       } else {
         Serial.println("FAILED - Fullness");
+      }
+
+      if (Firebase.RTDB.setFloat(&fbdo, "tong/weight", weight)) {
+        Serial.println("PASSED - Weight");
+      } else {
+        Serial.println("FAILED - Weight");
       }
     }
 
@@ -157,13 +177,13 @@ void ultrasonicTask(void *parameter) {
     // Calculate distance
     distance = (duration * 0.034) / 2;
     if (distance >= 25)
-      calculatedFullness = 100;
+      calculatedFullness = 0;
     else
-      calculatedFullness = (distance/25) * 100;
+      calculatedFullness = ((25-distance)/25) * 100;
 
-    if (xSemaphoreTake(xBinSemaphore, portMAX_DELAY)) {
+    if (xSemaphoreTake(xFullnessSemaphore, portMAX_DELAY)) {
       binFullness = calculatedFullness;
-      xSemaphoreGive(xBinSemaphore);
+      xSemaphoreGive(xFullnessSemaphore);
     }
 
     Serial.print("Distance: ");
@@ -182,29 +202,56 @@ void ultrasonicTask(void *parameter) {
 
 void servoTask(void *parameter) {
   for (;;) {
-    float currentDistance;
-
-    if (xSemaphoreTake(xBinSemaphore, portMAX_DELAY)) {
-      currentDistance = distance;
-      xSemaphoreGive(xBinSemaphore);
+    double currentFullness;
+    if (xSemaphoreTake(xFullnessSemaphore, portMAX_DELAY)) {
+      currentFullness = binFullness;
+      xSemaphoreGive(xFullnessSemaphore);
     }
 
-    if (currentDistance < FULL_THRESHOLD) {
+    if (currentFullness >= 80){
       servo.write(90);
-      Serial.println("Servo: Tutup tempat sampah");
+      Serial.println("Tempat sampah PENUH");
     } else {
-      servo.write(0);
-      Serial.println("Servo: Buka tempat sampah");
+      if (closeBin){
+        Serial.println("Tempat sampah DITUTUP PAKSA"); // fitur force close
+        servo.write(90);
+      } else {
+        Serial.println("Tempat sampah DIBUKA");
+        servo.write(0);
+      }
     }
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
+void loadCellTask(void *parameter) {
+  for (;;) {
+    double weight = scale.get_units(10); // Ambil nilai rata-rata 10 pembacaan
+    if (xSemaphoreTake(xWeightSemaphore, portMAX_DELAY)) {
+      loadCellWeight = weight; // Simpan nilai berat ke variabel global
+      xSemaphoreGive(xWeightSemaphore);
+    }
+
+    Serial.print("Load Cell Weight: ");
+    Serial.print(weight);
+    Serial.println(" kg");
+
+    scale.power_down();
+    vTaskDelay(5000 / portTICK_PERIOD_MS); // Delay selama 5 detik
+    scale.power_up();
+  }
+}
+
+void setupHX711();
 
 void setup() {
   gpsSerial.begin(9600);
   Serial.begin(9600);
+
+  servo.attach(servoPin);
+
+  setupHX711();
 
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
@@ -243,19 +290,10 @@ void setup() {
   Firebase.reconnectWiFi(true);
 
   xGPSSemaphore = xSemaphoreCreateMutex();
-  xBinSemaphore = xSemaphoreCreateMutex();
+  xFullnessSemaphore = xSemaphoreCreateMutex();
+  xWeightSemaphore = xSemaphoreCreateMutex();
 
   // Create FreeRTOS task for uploading data
-   xTaskCreatePinnedToCore(
-    uploadTask,        // Task function
-    "Upload Task",     // Name of the task
-    10000,             // Stack size in bytes
-    NULL,              // Task input parameter
-    1,                 // Priority of the task
-    &uploadTaskHandle, // Task handle
-    0                  // Core 0
-  );
-
   xTaskCreatePinnedToCore(
     gpsTask,           // Task function
     "GPS Task",       // Name of the task
@@ -269,11 +307,31 @@ void setup() {
   xTaskCreatePinnedToCore(
     ultrasonicTask,    // Task function
     "Ultrasonic Task",// Name of the task
-    2048,             // Stack size in bytes
+    4096,             // Stack size in bytes
     NULL,              // Task input parameter
     1,                 // Priority of the task
     &ultrasonicTaskHandle, // Task handle
     1                  // Core 1
+  );
+
+  xTaskCreatePinnedToCore(
+    loadCellTask,    // Task function
+    "LoadCell Task",// Name of the task
+    4096,             // Stack size in bytes
+    NULL,              // Task input parameter
+    1,                 // Priority of the task
+    &loadCellTaskHandle, // Task handle
+    1                 // Core 1
+  );
+
+  xTaskCreatePinnedToCore(
+    uploadTask,        // Task function
+    "Upload Task",     // Name of the task
+    10000,             // Stack size in bytes
+    NULL,              // Task input parameter
+    1,                 // Priority of the task
+    &uploadTaskHandle, // Task handle
+    0                  // Core 0
   );
 
   xTaskCreatePinnedToCore(
@@ -285,9 +343,46 @@ void setup() {
     &servoTaskHandle, // Task handle
     0                 // Core 1
   );
-
 }
 
 void loop() {
   Blynk.run();
+}
+
+void setupHX711() {
+  Serial.println("HX711 Setup Started");
+
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+
+  Serial.println("Before setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale.read());      // print a raw reading from the ADC
+
+  Serial.print("read average: \t\t");
+  Serial.println(scale.read_average(20));   // print the average of 20 readings from the ADC
+
+  Serial.print("get value: \t\t");
+  Serial.println(scale.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight (not set yet)
+
+  Serial.print("get units: \t\t");
+  Serial.println(scale.get_units(5), 1);  // print the average of 5 readings from the ADC minus tare weight divided by the SCALE parameter (not set yet)
+
+  scale.set_scale(-471.497); 
+  scale.tare();              // Reset timbangan ke 0
+
+  Serial.println("After setting up the scale:");
+
+  Serial.print("read: \t\t");
+  Serial.println(scale.read()); // print a raw reading from the ADC
+
+  Serial.print("read average: \t\t");
+  Serial.println(scale.read_average(20)); // print the average of 20 readings from the ADC
+
+  Serial.print("get value: \t\t");
+  Serial.println(scale.get_value(5)); // print the average of 5 readings from the ADC minus the tare weight, set with tare()
+
+  Serial.print("get units: \t\t");
+  Serial.println(scale.get_units(5), 1); // print the average of 5 readings from the ADC minus tare weight divided by the SCALE parameter set with set_scale
+
+  Serial.println("HX711 Setup Completed");
 }
