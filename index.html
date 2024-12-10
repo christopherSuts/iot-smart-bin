@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Bin IoT Dashboard</title>
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXgMvzVuCltKh819bEo2R9-tKeIKP4xXo",
+            authDomain: "postioning-via-bluetooth.firebaseapp.com",
+            databaseURL: "https://postioning-via-bluetooth-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "postioning-via-bluetooth",
+            storageBucket: "postioning-via-bluetooth.appspot.com",
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // References to DOM elements
+        const latitudeElement = document.getElementById('latitude');
+        const longitudeElement = document.getElementById('longitude');
+        const kepenuhanElement = document.getElementById('kepenuhan');
+        const mapElement = document.getElementById('map');
+
+        // Google Maps API setup
+        let map;
+        let marker;
+
+        function initMap(latitude, longitude) {
+            const position = { lat: latitude, lng: longitude };
+            if (!map) {
+                map = new google.maps.Map(mapElement, {
+                    zoom: 15,
+                    center: position,
+                });
+                marker = new google.maps.Marker({
+                    position,
+                    map,
+                });
+            } else {
+                map.setCenter(position);
+                marker.setPosition(position);
+            }
+        }
+
+        // Fetch and update data from Firebase
+        function updateDashboard() {
+            const tongRef = ref(database, 'tong');
+            
+            onValue(tongRef, (snapshot) => {
+                const data = snapshot.val();
+                
+                // Update Latitude
+                const latitude = data && data.latitude ? data.latitude : null;
+                latitudeElement.textContent = latitude ? latitude.toFixed(6) : '-';
+                
+                // Update Longitude
+                const longitude = data && data.longitude ? data.longitude : null;
+                longitudeElement.textContent = longitude ? longitude.toFixed(6) : '-';
+
+                // Update Kepenuhan
+                kepenuhanElement.textContent = data && data.fullness
+                    ? `${data.fullness.toFixed(2)}%`
+                    : '-';
+
+                // Update map if valid latitude and longitude exist
+                if (latitude !== null && longitude !== null) {
+                    initMap(latitude, longitude);
+                }
+            }, (error) => {
+                console.error('Firebase read error:', error);
+            });
+        }
+
+        // Initial update
+        updateDashboard();
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .dashboard {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        #map {
+            width: 100%;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .bin-info-top {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .bin-info-bottom {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .bin-card {
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <h1>Smart Bin Dashboard</h1>
+        <!-- Add map element -->
+        <div id="map"></div>
+        <div class="bin-info">
+            <div class="bin-card">
+                <h3>Latitude</h3>
+                <p id="latitude">-</p>
+            </div>
+            <div class="bin-card">
+                <h3>Longitude</h3>
+                <p id="longitude">-</p>
+            </div>
+        </div>
+
+        <div class="bin-info">
+            <div class="bin-card">
+                <h3>Kepenuhan Tempat Sampah</h3>
+                <p id="kepenuhan">-</p>
+            </div>
+        </div>
+    </div>
+    <!-- Google Maps API script -->
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAJx87nta76WLdlVkvRsYwO3t5mxNxByMc">
+    </script>
+</body>
+</html>
