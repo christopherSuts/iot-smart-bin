@@ -28,6 +28,7 @@ Data dari sensor dikirimkan ke Firebase Realtime Database menggunakan koneksi Wi
 
 
 Berikut flowchart kami :
+
 ![8BLeo.jpg](https://s6.imgcdn.dev/8BLeo.jpg)
 
 Flowchart proyek IoT tong sampah pintar menggambarkan alur kerja mulai dari pengambilan data oleh sensor ultrasonik, load cell, dan GPS, yang diproses oleh ESP32 untuk menentukan tingkat kepenuhan, berat, dan lokasi tong sampah. Data ini dikirim ke Firebase Realtime Database melalui WiFi untuk disimpan dan ditampilkan di aplikasi Blynk serta interfaceweb sederhana. Sistem juga dilengkapi mekanisme penutupan otomatis menggunakan servo motor jika tong penuh. Alur ini memastikan data tong sampah dapat dimonitor secara real-time oleh pengguna untuk pengelolaan yang efisien.
