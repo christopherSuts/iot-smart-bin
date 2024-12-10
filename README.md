@@ -15,7 +15,6 @@ Hardware proyek ini terdiri dari komponen-komponen berikut:
 - **Relay**: Mengontrol motor servo.
 - **Baterai 3,7V**: Menyediakan daya untuk sistem.
 
-Komponen-komponen ini dihubungkan untuk membentuk rangkaian di mana ESP32 mengumpulkan data dari sensor dan mengontrol servo berdasarkan kondisi yang telah ditentukan.
 
 Berikut skema infrastrukturnya :  
 ![8BoSL.png](https://s6.imgcdn.dev/8BoSL.png)
