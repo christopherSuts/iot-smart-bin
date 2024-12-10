@@ -5,7 +5,7 @@ Manajemen sampah yang efektif menjadi tantangan besar di daerah perkotaan akibat
 
 ## Hardware design and implementation details
 
-Perangkat keras proyek ini terdiri dari komponen-komponen berikut:
+Hardware proyek ini terdiri dari komponen-komponen berikut:
 
 - **ESP32**: Berfungsi sebagai mikrokontroler utama untuk pemrosesan dan komunikasi.
 - **Sensor Ultrasonik HC-SR04**: Mengukur tingkat kepenuhan tempat sampah.
@@ -36,7 +36,7 @@ Flowchart proyek IoT tong sampah pintar menggambarkan alur kerja mulai dari peng
 
 ## Test results and performance evaluation
 
-### Pengujian
+### Test
 
 - **Sensor Ultrasonik**: Diuji untuk pengukuran tingkat kepenuhan tempat sampah dengan akurasi pada berbagai jarak.
 - **Servo Motor**: Diuji untuk memastikan keandalan dalam membuka dan menutup tutup tempat sampah.
@@ -45,7 +45,7 @@ Flowchart proyek IoT tong sampah pintar menggambarkan alur kerja mulai dari peng
 - **Integrasi Blynk**: Diuji untuk memastikan kendali dan pemantauan yang responsif melalui aplikasi mobile.
 - **Koneksi WiFi ESP32**: Diuji untuk kestabilan koneksi ke jaringan WiFi.
 
-### Hasil
+### Result
 
 - **Sensor Ultrasonik**: Berhasil mengukur tingkat kepenuhan tempat sampah dengan akurasi tinggi.
 - **Servo Motor**: Berfungsi dengan andal untuk membuka dan menutup tutup tempat sampah berdasarkan kondisi kepenuhan.
